@@ -1,0 +1,35 @@
+services:
+  core:
+    build:
+      context: .
+      dockerfile: ./apps/core/Dockerfile
+      target: production
+    command: ["node", "dist/apps/core/main"]
+    env_file:
+      - ./apps/core/.env
+    depends_on:
+      - rabbitmq
+      - parse_service
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - '3000:3000'
+  parse_service:
+    build:
+      context: .
+      dockerfile: ./apps/parse_service/Dockerfile
+      target: production
+    command: ["node", "dist/apps/parse_service/main"]
+    env_file:
+      - ./apps/parse_service/.env
+    depends_on:
+      - rabbitmq
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+      
+  rabbitmq:
+    image: rabbitmq
+    ports:
+      - '5672:5672'
