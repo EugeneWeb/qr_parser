@@ -1,0 +1,58 @@
+- name: Install Docker 27.1.1 on Ubuntu 24.04
+  hosts: localhost
+  connection: local
+  become: yes
+  tasks:
+
+    - name: Remove old Docker versions
+      apt:
+        name:
+          - docker.io
+          - docker-doc
+          - docker-compose
+          - docker-compose-v2
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: absent
+        autoremove: yes
+        purge: yes
+        update_cache: yes
+
+    - name: Install required system packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository (Ubuntu 22.04 Jammy, совместимый с 24.04)
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker 27.1.1
+      apt:
+        name:
+          - docker-ce=5:27.1.1-1~ubuntu.22.04~jammy
+          - docker-ce-cli=5:27.1.1-1~ubuntu.22.04~jammy
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes

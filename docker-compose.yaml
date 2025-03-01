@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: ./apps/core/Dockerfile
-      target: production
-    command: ["node", "dist/apps/core/main"]
+      target: development
+    command: yarn start:dev core
     env_file:
       - ./apps/core/.env
     depends_on:
@@ -19,8 +19,8 @@ services:
     build:
       context: .
       dockerfile: ./apps/parse_service/Dockerfile
-      target: production
-    command: ["node", "dist/apps/parse_service/main"]
+      target: development
+    command: yarn start:dev parse_service
     env_file:
       - ./apps/parse_service/.env
     depends_on:
