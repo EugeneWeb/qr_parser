@@ -1,73 +1,55 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# RabbitMQ nest.js парсинг API-ответа
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Описание
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Приложение состоит из сервиса __core__, который принимает _Post_ запрос по адресу _/api/v1/parse-qr_ с body: { "qr": "URL..." }, валидирует значения и отправляет сообщение в брокер с помощью метода send, дожидаясь ответ от сервиса __parse_service__, отвечающего за парсинг данных по url строке qr. Парсинг был реализован следущим образом: было замечено, что данные на страницы подгружаются с сервера через обратный прокси по адресу /api/*, таким образом __parse_service__ берет параметры из url строки qr и добавляет их к базовому url сервера, делая запрос с помощью HttpModule.
+После успешного парсинга __parse_service__ возвращает: ИНН продавца, название продавца, массив покупок, стоимость всех покупок в __core__, который в свою очередь отдает эти данные в качестве ответа на посланный _Post_ запрос.
 
-## Description
+## Используемые технологии и подходы
+* Проект был написан с использованием __monorepo__
+* Общие части конфигурации rmqp, такие как подтверждение сообщения(ack), получения объекта с конфигурацией RmqOptions, регистрация клиента микросервиса были вынесены в общую библиотеку в libs/common
+* Для валидации переменных среды использовал пакет __Joi__ 
+* Написал кастомный валидатор __QrUrlValidator__ для проверки параметров qr
+* Написал кастомный мидлвар __LoggingMiddleware__ для логирования http запросов
+* Добавил __HttpExceptionFilter__ для обработки и логгирования HttpException
+* Добавил возможность многоступенчатой сборки образов в docker-compose: вариант для разработки(development) и продакшена(production).
+* Ограничил максимальное количество сообщений,которое может обработать консьюмер за раз до 5 с помощью __prefetchCount__.
+* Ограничил время на обработку сообщения консьюмером до 5 секунд(c помощью __send().pipe(timeout(5000))__).
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## Installation
 
-```bash
-$ yarn install
+## Пример запроса с помощью curl
+```
+curl -X POST http://localhost:3000/api/v1/parse-qr \
+-H "Content-Type: application/json" \
+-d '{
+      "qr": "https://consumer.1-ofd.ru/v1?fn=7380440800830906&fp=1315384961&i=24505&t=20250221T095434&s=149&n=1"
+   }'
 ```
 
-## Running the app
 
-```bash
-# development
-$ yarn run start
 
-# watch mode
-$ yarn run start:dev
+## Запуск приложения
 
-# production mode
-$ yarn run start:prod
+> Для удобства добавил .env файлы в проект. Переменные среды настраивать не нужно.
+
+### 1. Установка docker
+Использовал версию docker 27.1.1
+
+Для автоматизации установки версии docker 27.1.1 или перехода на версию docker 27.1.1 в папке ansible_docker_install находится ansible playbook и инвентори файл, которые запускаются следующей командой:
+```
+ansible-playbook -i inventory.ini install_docker.yml
 ```
 
-## Test
-
-```bash
-# unit tests
-$ yarn run test
-
-# e2e tests
-$ yarn run test:e2e
-
-# test coverage
-$ yarn run test:cov
+### 2. Запуск приложения через docker-compose файл
+Команда для запуска приложения:
+```
+docker-compose up
 ```
 
-## Support
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
 
-## Stay in touch
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
 
-## License
 
-Nest is [MIT licensed](LICENSE).
+
